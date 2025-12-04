@@ -282,13 +282,12 @@ class _HomeState extends State<Home> {
                         widget.home.filters.groupId == null
                     ? const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
-                        mainAxisExtent: 200,
+                        mainAxisExtent: 100,
                         mainAxisSpacing: 16,
                         crossAxisSpacing: 16,
                       )
                     : const SliverGridDelegateWithMaxCrossAxisExtent(
                         maxCrossAxisExtent: 315,
-                        mainAxisExtent: 120,
                         mainAxisSpacing: 16,
                         crossAxisSpacing: 16,
                       ),

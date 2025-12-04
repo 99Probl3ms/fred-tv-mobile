@@ -67,7 +67,7 @@ class _BottomNavState extends State<BottomNav> {
           showUnselectedLabels: false,
           items: const <BottomNavigationBarItem>[
             BottomNavigationBarItem(
-              icon: Icon(Icons.list),
+              icon: Icon(Icons.home),
               label: 'All',
             ),
             BottomNavigationBarItem(
@@ -79,10 +79,10 @@ class _BottomNavState extends State<BottomNav> {
               label: 'Favorites',
             ),
             BottomNavigationBarItem(
-                icon: Icon(Icons.history), label: "History"),
+                icon: Icon(Icons.tv_rounded), label: "TV Guide"),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings),
-              label: 'Settings',
+              label: 'Settings',  
             ),
           ],
           currentIndex: _selectedIndex,

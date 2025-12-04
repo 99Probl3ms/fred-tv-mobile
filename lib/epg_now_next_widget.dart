@@ -30,7 +30,10 @@ class EpgNowNextWidget extends StatelessWidget {
               Expanded(
                 child: Text(
                   epgData.now!.title,
-                  style: const TextStyle(fontSize: 10),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
@@ -50,8 +53,7 @@ class EpgNowNextWidget extends StatelessWidget {
             child: LinearProgressIndicator(
               value: epgData.now!.progressPercentage,
               minHeight: 3,
-              backgroundColor:
-                  Theme.of(context).colorScheme.surfaceContainerHighest,
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
               valueColor: AlwaysStoppedAnimation<Color>(
                 Theme.of(context).colorScheme.primary,
               ),
