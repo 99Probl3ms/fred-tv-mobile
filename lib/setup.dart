@@ -188,6 +188,34 @@ class _SetupState extends State<Setup> {
                                 ),
                                 name: 'password',
                               )),
+                        const SizedBox(height: 15),
+                        Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal:
+                                    MediaQuery.of(context).size.width * 0.1),
+                            child: FormBuilderTextField(
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
+                              validator: FormBuilderValidators.compose([
+                                (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return null; // Optional field
+                                  }
+                                  final uri = Uri.tryParse(value);
+                                  if (uri == null || !uri.hasScheme) {
+                                    return "Invalid URL";
+                                  }
+                                  return null;
+                                }
+                              ]),
+                              decoration: const InputDecoration(
+                                labelText: 'EPG URL (Optional)',
+                                hintText: 'http://example.com/epg.xml',
+                                prefixIcon: Icon(Icons.calendar_today),
+                                border: OutlineInputBorder(),
+                              ),
+                              name: 'epg_url',
+                            )),
                         const SizedBox(height: 20),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
@@ -222,6 +250,9 @@ class _SetupState extends State<Setup> {
                             if (sourceType == SourceType.xtream) {
                               url = await fixUrl(url!);
                             }
+                            final epgUrl = (_formKey.currentState
+                                    ?.value["epg_url"] as String?)
+                                ?.trim();
                             final result = await Error.tryAsync(() async {
                               await Utils.processSource(
                                 Source(
@@ -237,6 +268,9 @@ class _SetupState extends State<Setup> {
                                       ? (_formKey.currentState
                                               ?.value["password"] as String)
                                           .trim()
+                                      : null,
+                                  epgUrl: epgUrl?.isNotEmpty == true
+                                      ? epgUrl
                                       : null,
                                 ),
                               );

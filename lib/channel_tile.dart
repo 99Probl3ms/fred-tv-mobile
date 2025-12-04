@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:open_tv/backend/sql.dart';
 import 'package:open_tv/backend/xtream.dart';
+import 'package:open_tv/epg_now_next_widget.dart';
 import 'package:open_tv/memory.dart';
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/error.dart';
+import 'package:open_tv/models/epg_now_next.dart';
 import 'package:open_tv/models/media_type.dart';
 import 'package:open_tv/models/node.dart';
 import 'package:open_tv/models/node_type.dart';
@@ -26,18 +29,67 @@ class ChannelTile extends StatefulWidget {
 
 class _ChannelTileState extends State<ChannelTile> {
   final FocusNode _focusNode = FocusNode();
+  EpgNowNext? _epgData;
+  Timer? _epgRefreshTimer;
+
   @override
   void initState() {
     super.initState();
     _focusNode.addListener(() {
       setState(() {});
     });
+    _loadEpgData();
   }
 
   @override
   void dispose() {
     _focusNode.dispose();
+    _epgRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadEpgData() async {
+    // Only load EPG for livestream channels with tvgId
+    if (widget.channel.mediaType != MediaType.livestream ||
+        widget.channel.tvgId == null ||
+        widget.channel.tvgId!.isEmpty) {
+      return;
+    }
+
+    try {
+      final epgData = await Sql.getNowNext(widget.channel.tvgId);
+      if (mounted) {
+        setState(() {
+          _epgData = epgData;
+        });
+
+        // Schedule refresh when current program ends
+        _scheduleEpgRefresh();
+      }
+    } catch (_) {
+      // Silently ignore EPG fetch errors
+    }
+  }
+
+  void _scheduleEpgRefresh() {
+    _epgRefreshTimer?.cancel();
+
+    if (_epgData?.now != null) {
+      final remaining = _epgData!.now!.remainingDuration;
+      if (remaining.inSeconds > 0) {
+        // Refresh 5 seconds after current program ends
+        _epgRefreshTimer = Timer(
+          remaining + const Duration(seconds: 5),
+          _loadEpgData,
+        );
+      }
+    } else {
+      // No current program, refresh in 5 minutes
+      _epgRefreshTimer = Timer(
+        const Duration(minutes: 5),
+        _loadEpgData,
+      );
+    }
   }
 
   Future<void> favorite() async {
@@ -120,17 +172,32 @@ class _ChannelTileState extends State<ChannelTile> {
                   Expanded(
                       flex: 8,
                       child: LayoutBuilder(builder: (context, constraints) {
+                        final hasEpg = _epgData?.hasData == true;
                         final style = Theme.of(context).textTheme.bodyMedium!;
                         final fontSize = MediaQuery.of(context)
                             .textScaler
                             .scale(style.fontSize!);
                         final lineHeight = style.height! * fontSize;
+                        // Reserve space for EPG info if available
+                        final epgHeight = hasEpg ? 45.0 : 0.0;
+                        final availableHeight =
+                            constraints.maxHeight - epgHeight;
                         final maxLines =
-                            (constraints.maxHeight / lineHeight).floor();
-                        return Text(
-                          widget.channel.name,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: maxLines,
+                            (availableHeight / lineHeight).floor().clamp(1, 3);
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              widget.channel.name,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: maxLines,
+                            ),
+                            if (hasEpg) ...[
+                              const SizedBox(height: 4),
+                              EpgNowNextWidget(epgData: _epgData!),
+                            ],
+                          ],
                         );
                       }))
                 ],

@@ -94,6 +94,7 @@ Channel? getChannelFromLines(String l1, String last) {
       name: name,
       group: groupRegex.firstMatch(l1)?[1]?.trim(),
       image: logoRegex.firstMatch(l1)?[1]?.trim(),
+      tvgId: idRegex.firstMatch(l1)?[1]?.trim(),
       favorite: false,
       mediaType: getMediaType(last),
       sourceId: -1,

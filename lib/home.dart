@@ -5,16 +5,19 @@ import 'package:open_tv/backend/settings_service.dart';
 import 'package:open_tv/backend/sql.dart';
 import 'package:open_tv/backend/utils.dart';
 import 'package:open_tv/bottom_nav.dart';
+import 'package:open_tv/category_tile.dart';
 import 'package:open_tv/channel_tile.dart';
 import 'package:open_tv/loading.dart';
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/models/filters.dart';
 import 'package:open_tv/models/home_manager.dart';
+import 'package:open_tv/models/media_type.dart';
 import 'package:open_tv/models/no_push_animation_material_page_route.dart';
 import 'package:open_tv/models/node.dart';
 import 'package:open_tv/models/node_type.dart';
 import 'package:open_tv/models/view_type.dart';
 import 'package:open_tv/error.dart';
+import 'package:open_tv/tv_guide.dart';
 import 'package:open_tv/whats_new_modal.dart';
 
 class Home extends StatefulWidget {
@@ -275,14 +278,29 @@ class _HomeState extends State<Home> {
                 controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(16, 15, 16, 5),
                 itemCount: channels.length,
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 315,
-                  mainAxisExtent: 120,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                ),
+                gridDelegate: widget.home.filters.viewType == ViewType.categories &&
+                        widget.home.filters.groupId == null
+                    ? const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        mainAxisExtent: 200,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                      )
+                    : const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 315,
+                        mainAxisExtent: 120,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                      ),
                 itemBuilder: (context, index) {
                   final channel = channels[index];
+                  if (widget.home.filters.viewType == ViewType.categories &&
+                      widget.home.filters.groupId == null) {
+                    return CategoryTile(
+                      channel: channel,
+                      setNode: setNode,
+                    );
+                  }
                   return ChannelTile(
                     channel: channel,
                     parentContext: context,
@@ -298,10 +316,38 @@ class _HomeState extends State<Home> {
             ),
             floatingActionButton: Visibility(
               visible: !searchMode,
-              child: FloatingActionButton(
-                onPressed: toggleSearch,
-                tooltip: 'Search',
-                child: const Icon(Icons.search),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // TV Guide button (only show if livestreams are enabled)
+                  if (widget.home.filters.mediaTypes
+                          ?.contains(MediaType.livestream) ==
+                      true)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: FloatingActionButton.small(
+                        heroTag: 'tvGuide',
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TvGuide(
+                                sourceIds: widget.home.filters.sourceIds,
+                              ),
+                            ),
+                          );
+                        },
+                        tooltip: 'TV Guide',
+                        child: const Icon(Icons.calendar_view_day),
+                      ),
+                    ),
+                  FloatingActionButton(
+                    heroTag: 'search',
+                    onPressed: toggleSearch,
+                    tooltip: 'Search',
+                    child: const Icon(Icons.search),
+                  ),
+                ],
               ),
             )));
   }

@@ -7,6 +7,7 @@ class Source {
   String? urlOrigin;
   String? username;
   String? password;
+  String? epgUrl;
   SourceType sourceType;
   bool enabled;
 
@@ -17,6 +18,7 @@ class Source {
     this.urlOrigin,
     this.username,
     this.password,
+    this.epgUrl,
     required this.sourceType,
     this.enabled = true,
   });

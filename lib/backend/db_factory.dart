@@ -121,6 +121,45 @@ class DbFactory {
         await tx.execute('''
           CREATE INDEX index_groups_media_type ON groups(media_type);
         ''');
+      }))
+      ..add(SqliteMigration(4, (tx) async {
+        // Add EPG URL to sources
+        await tx.execute('''
+          ALTER TABLE sources
+          ADD COLUMN epg_url varchar(500);
+        ''');
+        // Add tvg_id to channels for EPG matching
+        await tx.execute('''
+          ALTER TABLE channels
+          ADD COLUMN tvg_id varchar(100);
+        ''');
+        await tx.execute('''
+          CREATE INDEX index_channels_tvg_id ON channels(tvg_id);
+        ''');
+        // Create EPG programs table
+        await tx.execute('''
+          CREATE TABLE "epg_programs" (
+            "id" INTEGER PRIMARY KEY,
+            "channel_tvg_id" varchar(100) NOT NULL,
+            "title" varchar(200) NOT NULL,
+            "description" text,
+            "start_time" integer NOT NULL,
+            "end_time" integer NOT NULL,
+            "source_id" integer NOT NULL,
+            "category" varchar(100),
+            "episode_info" varchar(100),
+            FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE
+          );
+        ''');
+        await tx.execute('''
+          CREATE INDEX index_epg_channel_tvg_id ON epg_programs(channel_tvg_id);
+        ''');
+        await tx.execute('''
+          CREATE INDEX index_epg_time_range ON epg_programs(channel_tvg_id, start_time, end_time);
+        ''');
+        await tx.execute('''
+          CREATE INDEX index_epg_source_id ON epg_programs(source_id);
+        ''');
       }));
     await migrations.migrate(db);
     return db;

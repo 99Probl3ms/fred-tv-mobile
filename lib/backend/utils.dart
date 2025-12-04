@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:open_tv/backend/m3u.dart';
 import 'package:open_tv/backend/sql.dart';
+import 'package:open_tv/backend/xmltv.dart';
 import 'package:open_tv/backend/xtream.dart';
 import 'package:open_tv/memory.dart';
 import 'package:open_tv/models/source.dart';
@@ -25,6 +27,23 @@ class Utils {
   static Future<void> refreshSource(Source source) async {
     refreshedSeries.clear();
     await processSource(source, true);
+    await refreshEpg(source);
+  }
+
+  static Future<void> refreshEpg(Source source) async {
+    if (source.epgUrl != null && source.epgUrl!.isNotEmpty) {
+      try {
+        await processEpgUrl(source, true);
+        final count = await Sql.getEpgCount(source.id);
+        debugPrint('EPG: Total ${count} programs in database for ${source.name}');
+      } catch (e) {
+        // EPG refresh failure should not block source refresh
+        // User can still use the app without EPG data
+        debugPrint('EPG: Failed to refresh for ${source.name}: $e');
+      }
+    } else {
+      debugPrint('EPG: No EPG URL configured for ${source.name}');
+    }
   }
 
   static Future<void> processSource(Source source, [bool wipe = false]) async {

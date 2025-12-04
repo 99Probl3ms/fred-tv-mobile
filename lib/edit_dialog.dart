@@ -32,6 +32,8 @@ class _EditDialogState extends State<EditDialog> {
                 return;
               }
               Navigator.of(context).pop();
+              final epgUrl =
+                  (_formKey.currentState?.value["epg_url"] as String?)?.trim();
               await Error.tryAsyncNoLoading(
                   () async => await Sql.updateSource(Source(
                       id: widget.source.id,
@@ -43,7 +45,8 @@ class _EditDialogState extends State<EditDialog> {
                           : null,
                       password: widget.source.sourceType == SourceType.xtream
                           ? _formKey.currentState?.value["password"]
-                          : null)),
+                          : null,
+                      epgUrl: epgUrl?.isNotEmpty == true ? epgUrl : null)),
                   context);
               await widget.afterSave();
             },
@@ -104,6 +107,30 @@ class _EditDialogState extends State<EditDialog> {
                     ),
                     name: 'password',
                   )),
+              const SizedBox(height: 30),
+              FormBuilderTextField(
+                initialValue: widget.source.epgUrl,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: FormBuilderValidators.compose([
+                  (value) {
+                    if (value == null || value.isEmpty) {
+                      return null; // Optional field
+                    }
+                    final uri = Uri.tryParse(value);
+                    if (uri == null || !uri.hasScheme) {
+                      return "Invalid URL";
+                    }
+                    return null;
+                  }
+                ]),
+                decoration: const InputDecoration(
+                  labelText: 'EPG URL (Optional)',
+                  hintText: 'http://example.com/epg.xml',
+                  prefixIcon: Icon(Icons.calendar_today),
+                  border: OutlineInputBorder(),
+                ),
+                name: 'epg_url',
+              ),
             ],
           )),
     )));
