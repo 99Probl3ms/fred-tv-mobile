@@ -276,11 +276,13 @@ class _SetupState extends State<Setup> {
                               );
                             }, context, "Successfully added source");
                             if (result.success) {
+                              // Force Home to reload sources and channels
                               Navigator.pushAndRemoveUntil(
                                 context,
                                 MaterialPageRoute(
                                     builder: (context) => Home(
-                                        home: HomeManager.defaultManager())),
+                                        home: HomeManager.defaultManager(),
+                                        refresh: false)),
                                 (route) => false,
                               );
                             }

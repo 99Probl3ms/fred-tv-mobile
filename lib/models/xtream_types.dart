@@ -6,6 +6,7 @@ class XtreamStream {
   final String? seriesId;
   final String? cover;
   final String? containerExtension;
+  final String? epgChannelId;
 
   XtreamStream({
     this.streamId,
@@ -15,6 +16,7 @@ class XtreamStream {
     this.seriesId,
     this.cover,
     this.containerExtension,
+    this.epgChannelId,
   });
 
   factory XtreamStream.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class XtreamStream {
       seriesId: json['series_id']?.toString(),
       cover: json['cover'],
       containerExtension: json['container_extension'],
+      epgChannelId: json['epg_channel_id'],
     );
   }
 }
@@ -143,3 +146,4 @@ class XtreamEPGItem {
     );
   }
 }
+

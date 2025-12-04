@@ -39,6 +39,7 @@ class _SettingsState extends State<SettingsView> {
   Future<void> initAsync() async {
     var results =
         await Future.wait([SettingsService.getSettings(), Sql.getSources()]);
+    if (!mounted) return;
     setState(() {
       settings = results[0] as Settings;
       sources = results[1] as List<Source>;
@@ -83,6 +84,7 @@ class _SettingsState extends State<SettingsView> {
                   .map((x) => IdData(id: x.index, data: x.name))
                   .toList(),
               action: (view) {
+                if (!mounted) return;
                 setState(() {
                   settings.defaultView = ViewType.values[view];
                   updateSettings();
@@ -124,6 +126,9 @@ class _SettingsState extends State<SettingsView> {
                       await Error.tryAsync(() async {
                         await Utils.refreshSource(source);
                       }, context, "Source has been refreshed successfully");
+                      if (mounted) {
+                        await reloadSources();
+                      }
                     },
                   )),
               Offstage(
@@ -167,6 +172,7 @@ class _SettingsState extends State<SettingsView> {
   Future<void> reloadSources() async {
     await Error.tryAsyncNoLoading(
         () async => sources = await Sql.getSources(), context);
+    if (!mounted) return;
     setState(() {
       sources;
     });
@@ -220,6 +226,7 @@ class _SettingsState extends State<SettingsView> {
                                 Switch(
                                   value: settings.refreshOnStart,
                                   onChanged: (bool value) {
+                                    if (!mounted) return;
                                     setState(() {
                                       settings.refreshOnStart = value;
                                     });
@@ -237,6 +244,7 @@ class _SettingsState extends State<SettingsView> {
                                 Switch(
                                   value: settings.showLivestreams,
                                   onChanged: (bool value) {
+                                    if (!mounted) return;
                                     setState(() {
                                       settings.showLivestreams = value;
                                     });
@@ -254,6 +262,7 @@ class _SettingsState extends State<SettingsView> {
                                 Switch(
                                   value: settings.showMovies,
                                   onChanged: (bool value) {
+                                    if (!mounted) return;
                                     setState(() {
                                       settings.showMovies = value;
                                     });
@@ -271,6 +280,7 @@ class _SettingsState extends State<SettingsView> {
                                 Switch(
                                   value: settings.showSeries,
                                   onChanged: (bool value) {
+                                    if (!mounted) return;
                                     setState(() {
                                       settings.showSeries = value;
                                     });

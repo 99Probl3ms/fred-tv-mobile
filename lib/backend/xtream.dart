@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:open_tv/backend/sql.dart';
+import 'package:open_tv/backend/xmltv.dart';
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/models/channel_preserve.dart';
 import 'package:open_tv/models/media_type.dart';
@@ -39,39 +41,54 @@ Future<void> getXtream(Source source, bool wipe) async {
   int failCount = 0;
   if (results[0] != null && results[1] != null) {
     try {
+      debugPrint('Channels: Starting to process livestream channels');
       processXtream(
           statements,
           processJsonList(results[0], XtreamStream.fromJson),
           processJsonList(results[1], XtreamCategory.fromJson),
           source,
           MediaType.livestream);
+      debugPrint('Channels: Finished processing livestream channels');
     } catch (e) {
       failCount++;
+      debugPrint('Channels: Error processing livestream channels: $e');
     }
+  } else {
+    debugPrint('Channels: Skipping livestream channels (missing data)');
   }
   if (results[2] != null && results[3] != null) {
     try {
+      debugPrint('Channels: Starting to process VOD/movie channels');
       processXtream(
           statements,
           processJsonList(results[2], XtreamStream.fromJson),
           processJsonList(results[3], XtreamCategory.fromJson),
           source,
           MediaType.movie);
+      debugPrint('Channels: Finished processing VOD/movie channels');
     } catch (e) {
       failCount++;
+      debugPrint('Channels: Error processing VOD/movie channels: $e');
     }
+  } else {
+    debugPrint('Channels: Skipping VOD/movie channels (missing data)');
   }
   if (results[4] != null && results[5] != null) {
     try {
+      debugPrint('Channels: Starting to process series channels');
       processXtream(
           statements,
           processJsonList(results[4], XtreamStream.fromJson),
           processJsonList(results[5], XtreamCategory.fromJson),
           source,
           MediaType.serie);
+      debugPrint('Channels: Finished processing series channels');
     } catch (e) {
       failCount++;
+      debugPrint('Channels: Error processing series channels: $e');
     }
+  } else {
+    debugPrint('Channels: Skipping series channels (missing data)');
   }
   if (failCount > 1) {
     return;
@@ -81,13 +98,40 @@ Future<void> getXtream(Source source, bool wipe) async {
     statements.add(Sql.restorePreserve(preserve));
   }
   await Sql.commitWrite(statements);
+  
+  // Automatically fetch EPG from Xtream XMLTV endpoint if no manual EPG URL was provided
+  // Retrieve the source from database to get its ID (which was set during commit)
+  final savedSource = await Sql.getSourceByName(source.name);
+  if (savedSource != null && 
+      (savedSource.epgUrl == null || savedSource.epgUrl!.isEmpty)) {
+    try {
+      final xmltvUrl = buildXtreamXmltvUrl(savedSource);
+      debugPrint('EPG: Auto-fetching EPG from Xtream XMLTV endpoint: $xmltvUrl');
+      
+      // Update source with the XMLTV URL
+      savedSource.epgUrl = xmltvUrl.toString();
+      await Sql.updateSource(savedSource);
+      
+      // Fetch and process EPG data
+      await processEpgUrl(savedSource, true);
+      final count = await Sql.getEpgCount(savedSource.id);
+      debugPrint('EPG: Auto-fetched and stored $count programs for source ${savedSource.name}');
+    } catch (e) {
+      // EPG fetch failure should not block source processing
+      // User can still use the app without EPG data
+      debugPrint('EPG: Failed to auto-fetch EPG from Xtream XMLTV endpoint: $e');
+    }
+  }
 }
 
 List<T> processJsonList<T>(
     List<dynamic> jsonList, T Function(Map<String, dynamic>) fromJson) {
-  return jsonList
+  debugPrint('Channels: Parsing ${jsonList.length} items from JSON');
+  final result = jsonList
       .map((json) => fromJson(json as Map<String, dynamic>))
       .toList();
+  debugPrint('Channels: Successfully parsed ${result.length} items');
+  return result;
 }
 
 Future<dynamic> getXtreamHttpData(String action, Source source,
@@ -110,15 +154,23 @@ void processXtream(
     List<XtreamCategory> cats,
     Source source,
     MediaType mediaType) {
+  debugPrint('Channels: Processing ${streams.length} ${mediaType.name} streams with ${cats.length} categories');
   Map<String, String> catsMap =
       Map.fromEntries(cats.map((x) => MapEntry(x.categoryId, x.categoryName)));
+  int successCount = 0;
+  int failCount = 0;
   for (var live in streams) {
     var cname = catsMap[live.categoryId];
     try {
       var channel = xtreamToChannel(live, source, mediaType, cname);
       statements.add(Sql.insertChannel(channel));
-    } catch (_) {}
+      successCount++;
+    } catch (e) {
+      failCount++;
+      debugPrint('Channels: Failed to convert stream "${live.name}" to channel: $e');
+    }
   }
+  debugPrint('Channels: Successfully converted $successCount/${streams.length} ${mediaType.name} streams to channels (${failCount} failed)');
 }
 
 Channel xtreamToChannel(XtreamStream stream, Source source,
@@ -167,6 +219,23 @@ Uri buildXtreamUrl(Source source, String action,
   }
   var url = Uri.parse(source.url!).replace(queryParameters: params);
   return url;
+}
+
+/// Build Xtream XMLTV endpoint URL
+/// Format: {base_url}/xmltv.php?username={username}&password={password}
+Uri buildXtreamXmltvUrl(Source source) {
+  final baseUrl = Uri.parse(source.url!);
+  final xmltvPath = baseUrl.path.replaceAll('/player_api.php', '/xmltv.php');
+  
+  // If the path is empty or just "/", use /xmltv.php
+  final finalPath = xmltvPath.isEmpty || xmltvPath == '/' ? '/xmltv.php' : xmltvPath;
+  
+  final params = {
+    'username': source.username!,
+    'password': source.password!,
+  };
+  
+  return baseUrl.replace(path: finalPath, queryParameters: params);
 }
 
 Future<void> getEpisodes(Channel channel) async {

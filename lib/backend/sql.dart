@@ -133,13 +133,14 @@ class Sql {
         return;
       }
       await tx.execute('''
-            INSERT INTO sources (name, source_type, url, username, password) VALUES (?, ?, ?, ?, ?);
+            INSERT INTO sources (name, source_type, url, username, password, enabled) VALUES (?, ?, ?, ?, ?, ?);
           ''', [
         source.name,
         source.sourceType.index,
         source.url,
         source.username,
         source.password,
+        source.enabled ? 1 : 0,
       ]);
       memory['sourceId'] =
           (await tx.get("SELECT last_insert_rowid();")).columnAt(0).toString();
@@ -375,6 +376,13 @@ class Sql {
   static Future<Source> getSourceFromId(int id) async {
     var db = await DbFactory.db;
     var result = await db.get('''SELECT * FROM sources WHERE id = ?''', [id]);
+    return rowToSource(result);
+  }
+
+  static Future<Source?> getSourceByName(String name) async {
+    var db = await DbFactory.db;
+    var result = await db.getOptional('''SELECT * FROM sources WHERE name = ?''', [name]);
+    if (result == null) return null;
     return rowToSource(result);
   }
 

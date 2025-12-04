@@ -62,6 +62,8 @@ class _HomeState extends State<Home> {
       widget.home.filters.mediaTypes =
           (await SettingsService.getSettings()).getMediaTypes();
     }
+    // Reset page to 1 to ensure we start from the beginning
+    widget.home.filters.page = 1;
     await load();
     final String? version = await SettingsService.shouldShowWhatsNew();
     if (widget.firstLaunch && version != null) {
