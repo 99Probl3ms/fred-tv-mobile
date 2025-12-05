@@ -3,7 +3,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:open_tv/backend/sql.dart';
 import 'package:open_tv/backend/xtream.dart';
-import 'package:open_tv/epg_now_next_widget.dart';
 import 'package:open_tv/memory.dart';
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/error.dart';
@@ -27,12 +26,15 @@ class ChannelTile extends StatefulWidget {
   State<ChannelTile> createState() => _ChannelTileState();
 }
 
-class _ChannelTileState extends State<ChannelTile> {
+class _ChannelTileState extends State<ChannelTile>
+    with SingleTickerProviderStateMixin {
   final FocusNode _focusNode = FocusNode();
   EpgNowNext? _epgData;
   Timer? _epgRefreshTimer;
   Size? _imageSize;
   bool _isLoadingImageSize = false;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -40,6 +42,16 @@ class _ChannelTileState extends State<ChannelTile> {
     _focusNode.addListener(() {
       setState(() {});
     });
+
+    // Pulse animation for LIVE badge
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
     _loadEpgData();
     _loadImageSize();
   }
@@ -107,6 +119,7 @@ class _ChannelTileState extends State<ChannelTile> {
   void dispose() {
     _focusNode.dispose();
     _epgRefreshTimer?.cancel();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -201,46 +214,65 @@ class _ChannelTileState extends State<ChannelTile> {
     }
 
     return Positioned(
-      top: 8,
-      right: 8,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.error,
-          borderRadius: BorderRadius.circular(4),
-          boxShadow: _focusNode.hasFocus
-              ? [
-                  BoxShadow(
-                    color: Theme.of(context).colorScheme.error.withOpacity(0.6),
-                    blurRadius: 8,
-                    spreadRadius: 2,
+      top: 10,
+      right: 10,
+      child: AnimatedBuilder(
+        animation: _pulseAnimation,
+        builder: (context, child) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFE53935),
+                  const Color(0xFFC62828),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFE53935)
+                      .withOpacity(_focusNode.hasFocus ? 0.6 : 0.3),
+                  blurRadius: _focusNode.hasFocus ? 12 : 6,
+                  spreadRadius: _focusNode.hasFocus ? 2 : 0,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(_pulseAnimation.value),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.white
+                            .withOpacity(_pulseAnimation.value * 0.5),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
                   ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
+                ),
+                const SizedBox(width: 5),
+                const Text(
+                  'LIVE',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            const Text(
-              'LIVE',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -251,93 +283,284 @@ class _ChannelTileState extends State<ChannelTile> {
     }
 
     return Positioned(
-      top: 8,
-      left: 8,
+      top: 10,
+      left: 10,
       child: Container(
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.5),
+          color: Colors.black.withOpacity(0.6),
           shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.amber.withOpacity(0.4),
+              blurRadius: 8,
+              spreadRadius: 1,
+            ),
+          ],
         ),
-        child: Icon(
-          Icons.star,
-          color: Theme.of(context).colorScheme.primary,
+        child: const Icon(
+          Icons.star_rounded,
+          color: Colors.amber,
           size: 16,
         ),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final hasEpg = _epgData?.hasData == true;
-
-    return Card(
-      elevation: _focusNode.hasFocus ? 8.0 : 4.0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: _focusNode.hasFocus
-              ? Theme.of(context).colorScheme.primary
-              : Colors.transparent,
-          width: 2,
+  Widget _buildGradientOverlay() {
+    return Positioned.fill(
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              Colors.transparent,
+              Colors.black.withOpacity(0.3),
+              Colors.black.withOpacity(0.85),
+            ],
+            stops: const [0.0, 0.4, 0.7, 1.0],
+          ),
         ),
       ),
-      child: InkWell(
-        focusNode: _focusNode,
-        onLongPress: favorite,
-        onTap: () async => await play(),
-        borderRadius: BorderRadius.circular(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Image section with badges
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(10),
-                  topRight: Radius.circular(10),
+    );
+  }
+
+  Widget _buildChannelImage() {
+    if (widget.channel.image == null) {
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Theme.of(context).colorScheme.surfaceContainerHigh,
+              Theme.of(context).colorScheme.surfaceContainerLow,
+            ],
+          ),
+        ),
+        child: Center(
+          child: Image.asset(
+            "assets/icon.png",
+            fit: BoxFit.contain,
+            width: 64,
+            height: 64,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      color: const Color(0xFF121212),
+      child: _needsPadding()
+          ? Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: CachedNetworkImage(
+                imageUrl: widget.channel.image!,
+                fit: BoxFit.contain,
+                fadeInDuration: const Duration(milliseconds: 200),
+                errorWidget: (_, __, ___) => Center(
+                  child: Image.asset(
+                    "assets/icon.png",
+                    fit: BoxFit.contain,
+                    width: 64,
+                    height: 64,
+                  ),
                 ),
+              ),
+            )
+          : CachedNetworkImage(
+              imageUrl: widget.channel.image!,
+              fit: BoxFit.cover,
+              fadeInDuration: const Duration(milliseconds: 200),
+              errorWidget: (_, __, ___) => Container(
+                color: const Color(0xFF121212),
+                child: Center(
+                  child: Image.asset(
+                    "assets/icon.png",
+                    fit: BoxFit.contain,
+                    width: 64,
+                    height: 64,
+                  ),
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildInfoOverlay() {
+    final hasEpg = _epgData?.hasData == true;
+
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.channel.name,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+                color: Colors.white,
+                shadows: [
+                  Shadow(
+                    offset: Offset(0, 1),
+                    blurRadius: 3,
+                    color: Colors.black54,
+                  ),
+                ],
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
+            if (hasEpg) ...[
+              const SizedBox(height: 6),
+              _buildEpgOverlay(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEpgOverlay() {
+    if (_epgData?.now == null) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _epgData!.now!.title,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withOpacity(0.85),
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                _epgData!.now!.remainingTimeString,
+                style: TextStyle(
+                  fontSize: 9,
+                  color: Colors.white.withOpacity(0.9),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: Stack(
+            children: [
+              Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              FractionallySizedBox(
+                widthFactor: _epgData!.now!.progressPercentage,
+                child: Container(
+                  height: 3,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Theme.of(context).colorScheme.primary,
+                        Theme.of(context).colorScheme.primary.withOpacity(0.8),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                            Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                        blurRadius: 4,
+                        offset: const Offset(0, 0),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isFocused = _focusNode.hasFocus;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    return AnimatedScale(
+      scale: isFocused ? 1.04 : 1.0,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isFocused ? primaryColor : Colors.white.withOpacity(0.08),
+            width: isFocused ? 2 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isFocused
+                  ? primaryColor.withOpacity(0.4)
+                  : Colors.black.withOpacity(0.3),
+              blurRadius: isFocused ? 24 : 8,
+              spreadRadius: isFocused ? 2 : 0,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(11),
+          child: Material(
+            color: const Color(0xFF1A1A1A),
+            child: InkWell(
+              focusNode: _focusNode,
+              onLongPress: favorite,
+              onTap: () async => await play(),
+              splashColor: primaryColor.withOpacity(0.2),
+              highlightColor: primaryColor.withOpacity(0.1),
+              child: AspectRatio(
+                aspectRatio: 16 / 10,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Background container with theme color
-                    Container(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainer,
-                      child: widget.channel.image != null
-                          ? _needsPadding()
-                              ? Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: CachedNetworkImage(
-                                    imageUrl: widget.channel.image!,
-                                    fit: BoxFit.contain,
-                                    errorWidget: (_, __, ___) => Image.asset(
-                                      "assets/icon.png",
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
-                                )
-                              : CachedNetworkImage(
-                                  imageUrl: widget.channel.image!,
-                                  fit: BoxFit.cover,
-                                  errorWidget: (_, __, ___) => Container(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainer,
-                                    child: Image.asset(
-                                      "assets/icon.png",
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
-                                )
-                          : Image.asset(
-                              "assets/icon.png",
-                              fit: BoxFit.contain,
-                            ),
-                    ),
+                    // Channel image
+                    _buildChannelImage(),
+                    // Gradient overlay for text legibility
+                    _buildGradientOverlay(),
+                    // Channel info (name + EPG)
+                    _buildInfoOverlay(),
                     // Live badge
                     _buildLiveBadge(),
                     // Favorite indicator
@@ -346,31 +569,7 @@ class _ChannelTileState extends State<ChannelTile> {
                 ),
               ),
             ),
-            // Text section below image
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.channel.name,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                  ),
-                  if (hasEpg) ...[
-                    const SizedBox(height: 6),
-                    EpgNowNextWidget(epgData: _epgData!),
-                  ],
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
